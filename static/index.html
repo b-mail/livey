@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Livey — 라이브 데모 수정 에이전트</title>
+<link rel="icon" type="image/png" href="/static/livey-logo.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fafafa; --surface:#ffffff; --border:#eaeaea; --border-2:#e0e0e0;
+    --ink:#0a0a0a; --muted:#666666; --muted-2:#999999;
+    --ok:#22c55e; --busy:#f5a623; --r:8px;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 8px 30px rgba(0,0,0,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Geist","Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;
+    font-size:14px; line-height:1.5; overflow:hidden;
+  }
+  .mono{font-family:"Geist Mono",ui-monospace,monospace}
+  .app{display:flex;height:100vh}
+
+  /* ── 좌측: 스테이지 컬럼 ── */
+  .stage-col{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{
+    height:56px;flex:none;background:var(--surface);border-bottom:1px solid var(--border);
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 20px;gap:12px;
+  }
+  .crumb{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo{height:20px;width:auto;flex:none;display:block}
+  .crumb .name{font-weight:600;font-size:14px}
+  .crumb .sep{color:var(--border-2);font-size:16px}
+  .crumb .proj{color:var(--muted);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .nav{
+    display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);
+    padding:3px;border-radius:999px;box-shadow:var(--shadow-sm);
+    opacity:0;transform:translateY(-6px);pointer-events:none;transition:all .3s ease;
+  }
+  .nav.show{opacity:1;transform:none;pointer-events:auto}
+  .nav button{
+    border:0;background:transparent;padding:5px 16px;border-radius:999px;cursor:pointer;
+    font:inherit;font-size:13px;font-weight:500;color:var(--muted);transition:all .15s;
+  }
+  .nav button:hover{color:var(--ink)}
+  .nav button.on{background:var(--ink);color:#fff}
+
+  .top-right{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12px;font-weight:500;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);
+    padding:5px 12px;border-radius:999px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted-2);flex:none}
+  .chip.ok .dot{background:var(--ok)}
+  .chip.busy .dot{background:var(--busy);animation:blink 1s ease-in-out infinite}
+  @keyframes blink{50%{opacity:.35}}
+
+  /* ── 스테이지 본문 ── */
+  .stagebody{flex:1;display:flex;flex-direction:column;padding:20px;gap:14px;min-height:0;position:relative}
+  .canvas{
+    flex:1;min-height:0;background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);position:relative;
+  }
+  .canvas iframe{width:100%;height:100%;border:0;display:none}
+  .canvas iframe.show{display:block}
+
+  /* 빈 데모 슬롯 */
+  .slot{
+    position:absolute;inset:14px;border:1.5px dashed var(--border-2);border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    color:var(--muted);text-align:center;padding:24px;
+  }
+  .slot.hide{display:none}
+  .slot{cursor:pointer;transition:border-color .15s,background .15s}
+  .slot:hover{border-color:var(--muted-2)}
+  .slot.drag{border-color:#1FC77E;background:rgba(31,199,126,.06)}
+  .slot svg{margin-bottom:6px;opacity:.5}
+  .slot h3{font-size:15px;font-weight:600;color:var(--ink)}
+  .slot p{font-size:13px;color:var(--muted);max-width:380px}
+  .slot code{
+    font-family:"Geist Mono",ui-monospace,monospace;font-size:12px;
+    background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 9px;
+    color:var(--muted);margin-top:6px;
+  }
+
+  /* ── AI 설명 패널 (하단 도킹) ── */
+  .explain{
+    flex:none;height:0;opacity:0;overflow:hidden;
+    background:var(--surface);border:1px solid transparent;border-radius:12px;
+    transition:height .35s cubic-bezier(.4,0,.2,1),opacity .25s,border-color .25s;
+    box-shadow:var(--shadow-sm);
+  }
+  .explain.show{height:212px;opacity:1;border-color:var(--border)}
+  .explain-in{padding:16px 20px 18px;height:212px;display:flex;flex-direction:column}
+  .ex-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .ex-badge{
+    font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;
+    background:var(--ink);color:#fff;letter-spacing:.02em;
+  }
+  .ex-approach{font-size:12.5px;color:var(--muted)}
+  .ex-title{font-size:13.5px;font-weight:600;flex:1}
+  .ex-actions{display:flex;align-items:center;gap:8px}
+  .ex-url{
+    font-family:"Geist Mono",ui-monospace,monospace;font-size:11.5px;color:var(--muted);
+    background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;
+    max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .ex-open{
+    font-size:12.5px;font-weight:500;color:var(--ink);text-decoration:none;
+    border:1px solid var(--border);border-radius:6px;padding:4px 12px;background:var(--surface);
+    transition:border-color .15s;white-space:nowrap;
+  }
+  .ex-open:hover{border-color:var(--ink)}
+  .ex-collapse{
+    border:0;background:transparent;cursor:pointer;color:var(--muted-2);
+    padding:4px;border-radius:6px;display:flex;
+  }
+  .ex-collapse:hover{color:var(--ink);background:var(--bg)}
+  .ex-body{font-size:13.5px;color:#333;line-height:1.75;overflow-y:auto;flex:1}
+  .ex-hint{margin-top:8px;font-size:11.5px;color:var(--muted-2)}
+
+  /* ── AI 설명 플로팅 (스크롤 업 시) ── */
+  .float{
+    position:absolute;left:50%;bottom:32px;transform:translateX(-50%) translateY(10px);
+    opacity:0;pointer-events:none;transition:all .3s ease;cursor:pointer;
+    display:flex;align-items:center;gap:12px;max-width:620px;width:calc(100% - 80px);
+    background:rgba(255,255,255,.92);backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);
+    padding:11px 16px;
+  }
+  .float.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .float .ex-badge{flex:none}
+  .float .f-sum{
+    flex:1;font-size:13px;color:#333;font-weight:500;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .float .f-chev{color:var(--muted-2);flex:none;display:flex}
+
+  /* ── 우측: 채팅 ── */
+  .chat{
+    width:384px;flex:none;background:var(--surface);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;
+  }
+  .chat-head{
+    height:56px;flex:none;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:9px;padding:0 18px;
+  }
+  .chat-head .dot{background:var(--ok)}
+  .chat-head b{font-size:14px;font-weight:600}
+  .chat-head span{font-size:12px;color:var(--muted);margin-left:auto}
+  .msgs{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:14px}
+  .m-user{
+    align-self:flex-end;max-width:88%;
+    background:var(--ink);color:#fff;border-radius:14px 14px 4px 14px;
+    padding:9px 14px;font-size:13.5px;line-height:1.55;
+  }
+  .m-agent{align-self:stretch;display:flex;gap:10px;max-width:100%}
+  .avatar{
+    width:26px;height:26px;flex:none;border-radius:8px;background:var(--ink);
+    display:flex;align-items:center;justify-content:center;margin-top:1px;
+  }
+  .avatar svg{width:12px;height:12px}
+  .m-body{flex:1;min-width:0;font-size:13.5px;line-height:1.65;color:#222;padding-top:2px}
+
+  /* 채팅 내 진행 카드 */
+  .progress-card{
+    margin-top:8px;border:1px solid var(--border);border-radius:10px;overflow:hidden;
+    background:var(--surface);
+  }
+  .p-lane{padding:11px 14px;display:flex;flex-direction:column;gap:7px}
+  .p-lane + .p-lane{border-top:1px solid var(--border)}
+  .p-top{display:flex;align-items:center;gap:8px}
+  .p-name{font-weight:600;font-size:13px}
+  .p-tag{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:1px 8px}
+  .p-stage{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .p-stage .spin{
+    width:11px;height:11px;border:1.5px solid var(--border-2);border-top-color:var(--ink);
+    border-radius:50%;animation:rot .7s linear infinite;flex:none;
+  }
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .p-stage.done{color:var(--ok);font-weight:500}
+  .p-bar{height:3px;background:var(--bg);border-radius:99px;overflow:hidden}
+  .p-bar i{display:block;height:100%;background:var(--ink);border-radius:99px;width:0;transition:width .4s ease}
+  .p-view{
+    margin-top:2px;align-self:flex-start;border:1px solid var(--border);background:var(--surface);
+    font:inherit;font-size:12px;font-weight:500;padding:4px 12px;border-radius:6px;cursor:pointer;
+    display:none;transition:border-color .15s;
+  }
+  .p-view:hover{border-color:var(--ink)}
+  .p-lane.ready .p-view{display:inline-block}
+
+  .composer{flex:none;border-top:1px solid var(--border);padding:14px 16px;background:var(--surface)}
+  .composer-in{
+    display:flex;align-items:flex-end;gap:8px;
+    border:1px solid var(--border-2);border-radius:12px;padding:9px 9px 9px 14px;
+    transition:border-color .15s, box-shadow .15s;background:var(--surface);
+  }
+  .composer-in:focus-within{border-color:var(--ink);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  .composer textarea{
+    flex:1;border:0;outline:none;resize:none;font:inherit;font-size:13.5px;line-height:1.5;
+    max-height:110px;color:var(--ink);background:transparent;
+  }
+  .composer textarea::placeholder{color:var(--muted-2)}
+  .send{
+    width:30px;height:30px;flex:none;border:0;border-radius:8px;cursor:pointer;
+    background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;
+    transition:opacity .15s;
+  }
+  .send:disabled{opacity:.3;cursor:default}
+  .composer .tip{font-size:11.5px;color:var(--muted-2);margin-top:8px;padding:0 2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── 스테이지 ── -->
+  <div class="stage-col">
+    <div class="topbar">
+      <div class="crumb">
+        <img class="logo" src="/static/livey-logo.png" alt="Livey">
+        <span class="sep">/</span>
+        <span class="proj" id="projName">live-demo</span>
+      </div>
+      <div class="nav" id="nav">
+        <button data-view="origin" class="on" onclick="setView('origin')">원본</button>
+        <button data-view="a" onclick="setView('a')">A안</button>
+        <button data-view="b" onclick="setView('b')">B안</button>
+      </div>
+      <div class="top-right">
+        <span class="chip" id="modeChip">mock</span>
+        <span class="chip ok" id="statusChip"><i class="dot"></i><span id="statusText">Ready</span></span>
+      </div>
+    </div>
+
+    <div class="stagebody" id="stagebody">
+      <div class="canvas">
+        <div class="slot" id="slot">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.4">
+            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7.5 6.5h.01M10.5 6.5h.01"/>
+          </svg>
+          <h3>데모 HTML을 끌어다 놓으세요</h3>
+          <p>단일 HTML 파일 1개를 드래그 앤 드롭하면 이 자리에 라이브 데모로 로드됩니다.</p>
+          <code>.html 파일 1개 · 클릭해서 선택할 수도 있습니다</code>
+          <input type="file" id="filePick" accept=".html,.htm" hidden>
+        </div>
+        <!-- 뷰별 전용 iframe — 전환 시 리로드 없이 상태 유지 -->
+        <iframe id="frame-origin" title="원본 데모"></iframe>
+        <iframe id="frame-a" title="A안 프리뷰"></iframe>
+        <iframe id="frame-b" title="B안 프리뷰"></iframe>
+      </div>
+
+      <!-- AI 설명 (도킹) -->
+      <div class="explain" id="explain">
+        <div class="explain-in">
+          <div class="ex-head">
+            <span class="ex-badge" id="exBadge">A안</span>
+            <span class="ex-approach" id="exApproach">보수적</span>
+            <span class="ex-title" id="exTitle"></span>
+            <div class="ex-actions">
+              <span class="ex-url mono" id="exUrl"></span>
+              <a class="ex-open" id="exOpen" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
+              <button class="ex-collapse" onclick="setExplain('floating')" title="접기">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="ex-body" id="exBody"></div>
+          <div class="ex-hint">위로 스크롤하면 설명이 접히고 데모가 전체화면이 됩니다</div>
+        </div>
+      </div>
+
+      <!-- AI 설명 (플로팅) -->
+      <div class="float" id="float" onclick="setExplain('expanded')" title="펼치기">
+        <span class="ex-badge" id="fBadge">A안</span>
+        <span class="f-sum" id="fSum"></span>
+        <span class="f-chev">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI 채팅 ── -->
+  <aside class="chat">
+    <div class="chat-head">
+      <i class="dot"></i><b>에이전트</b><span>수정 요청을 자연어로</span>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="composer">
+      <div class="composer-in">
+        <textarea id="input" rows="1" placeholder="라이브 데모를 어떻게 수정할까요?"
+          spellcheck="false"></textarea>
+        <button class="send" id="send" onclick="submit()" title="보내기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+      <div class="tip">Enter 전송 · Shift+Enter 줄바꿈 — 두 가지 안(A·B)을 동시에 생성합니다</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// 데모 슬롯: 드래그 앤 드롭(또는 클릭)으로 단일 HTML을 넣으면 /api/demo 로 등록되고 "/demo"에서 서빙된다
+let DEMO_SRC = null;
+
+const STAGES = ["변형 생성", "샌드박스 기동", "서버 실행", "준비 완료"];
+let lanes = {};             // /api/state 의 레인 데이터
+let view = "origin";        // origin | a | b
+let explainState = "hidden";// hidden | expanded | floating
+let timer = null, generated = false, lastToggle = 0, runSeq = 0;
+
+const $ = id => document.getElementById(id);
+
+/* ── 채팅 ── */
+function agentMsg(html) {
+  const el = document.createElement("div");
+  el.className = "m-agent";
+  el.innerHTML = `<div class="avatar">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="4" height="14" rx="2" fill="#1FC77E"/><path d="M10 5.5L21 12L10 18.5Z" fill="#fff"/></svg>
+  </div><div class="m-body">${html}</div>`;
+  $("msgs").appendChild(el);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+  return el.querySelector(".m-body");
+}
+function userMsg(text) {
+  const el = document.createElement("div");
+  el.className = "m-user";
+  el.textContent = text;
+  $("msgs").appendChild(el);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+}
+
+agentMsg(`안녕하세요, <b>Livey</b>입니다. 좌측 슬롯에 데모 HTML 파일을 끌어다 놓고,
+수정 요청을 자연어로 보내 주세요.<br>
+요청을 보내면 <b>서로 다른 해석의 A안·B안</b>을 격리된 샌드박스 2대에서 동시에 만들어,
+바로 열어볼 수 있는 URL로 돌려드립니다.`);
+
+/* ── 데모 파일 드래그 앤 드롭 / 클릭 선택 ── */
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function loadDemoFile(file) {
+  if (!file) return;
+  if (!/\.html?$/i.test(file.name)) {
+    agentMsg(`<b>${esc(file.name)}</b> — HTML 파일(.html)만 넣을 수 있습니다.`);
+    return;
+  }
+  const html = await file.text();
+  await fetch("/api/demo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html, name: file.name }),
+  });
+  DEMO_SRC = "/demo?t=" + Date.now();
+  $("projName").textContent = file.name;
+  setView("origin");
+  agentMsg(`<b>${esc(file.name)}</b> 데모를 불러왔습니다. 어떻게 수정할까요?`);
+}
+
+const stagebody = $("stagebody");
+stagebody.addEventListener("dragover", e => {
+  e.preventDefault();
+  $("slot").classList.add("drag");
+});
+stagebody.addEventListener("dragleave", e => {
+  if (!stagebody.contains(e.relatedTarget)) $("slot").classList.remove("drag");
+});
+stagebody.addEventListener("drop", e => {
+  e.preventDefault();
+  $("slot").classList.remove("drag");
+  const files = [...e.dataTransfer.files];
+  if (files.length > 1) { agentMsg("HTML 파일은 한 번에 1개만 넣을 수 있습니다."); return; }
+  loadDemoFile(files[0]);
+});
+$("slot").addEventListener("click", () => $("filePick").click());
+$("filePick").addEventListener("change", e => {
+  loadDemoFile(e.target.files[0]);
+  e.target.value = "";
+});
+
+(async () => {
+  try {
+    const st = await (await fetch("/api/state")).json();
+    $("modeChip").textContent = st.mode === "daytona" ? "Daytona" : "mock";
+  } catch (_) {}
+})();
+
+/* ── 실행 ── */
+async function submit() {
+  const text = $("input").value.trim();
+  if (!text || $("send").disabled) return;
+  userMsg(text);
+  $("input").value = "";
+  $("send").disabled = true;
+  setStatus("busy", "Building…");
+
+  generated = false;
+  runSeq += 1;
+  const n = runSeq;
+  setView("origin");
+  $("nav").classList.remove("show");
+  ["a", "b"].forEach(k => {
+    const f = $(FRAMES[k]);
+    f.removeAttribute("src");
+    delete f.dataset.cur;
+  });
+
+  await fetch("/api/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ request: text }),
+  });
+
+  const start = n === 1
+    ? "요청을 비중 차트로 해석해 샌드박스 2대를 동시에 기동합니다."
+    : "요청을 정산 내역 필터로 해석해 샌드박스 2대를 동시에 기동합니다.";
+  agentMsg(`${start}
+    <div class="progress-card" id="pc-${n}">
+      ${["a","b"].map(id => `
+      <div class="p-lane" id="pl-${n}-${id}">
+        <div class="p-top">
+          <span class="p-name" id="pn-${n}-${id}"></span>
+          <span class="p-tag" id="pt-${n}-${id}"></span>
+          <span class="p-stage" id="ps-${n}-${id}"><i class="spin"></i><span>대기 중</span></span>
+        </div>
+        <div class="p-bar"><i id="pb-${n}-${id}"></i></div>
+        <button class="p-view" onclick="setView('${id}')">이 안 보기</button>
+      </div>`).join("")}
+    </div>`);
+  if (timer) clearInterval(timer);
+  timer = setInterval(poll, 350);
+}
+
+$("input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+});
+
+/* ── 폴링 ── */
+async function poll() {
+  const st = await (await fetch("/api/state")).json();
+  $("modeChip").textContent = st.mode === "daytona" ? "Daytona" : "mock";
+  let allDone = st.lanes.length > 0;
+
+  for (const l of st.lanes) {
+    lanes[l.id] = l;
+    const row = $("pl-" + runSeq + "-" + l.id);
+    if (!row) continue;
+    $("pn-" + runSeq + "-" + l.id).textContent = l.label;
+    $("pt-" + runSeq + "-" + l.id).textContent = l.approach;
+    const ps = $("ps-" + runSeq + "-" + l.id), pb = $("pb-" + runSeq + "-" + l.id);
+    if (l.error) {
+      ps.innerHTML = "<span>실패</span>"; pb.style.width = "100%"; pb.style.background = "#e00";
+    } else if (l.stage === 3 && l.url) {
+      ps.className = "p-stage done";
+      ps.innerHTML = `<span>✓ 준비 완료 · ${l.elapsed}s</span>`;
+      pb.style.width = "100%";
+      row.classList.add("ready");
+    } else if (l.stage >= 0) {
+      ps.innerHTML = `<i class="spin"></i><span>${STAGES[l.stage]} 중…</span>`;
+      pb.style.width = ((l.stage + 1) / 4 * 100) + "%";
+      allDone = false;
+    } else { allDone = false; }
+  }
+
+  if (!st.running && allDone && !generated) {
+    generated = true;
+    clearInterval(timer); timer = null;
+    $("nav").classList.add("show");
+    $("send").disabled = false;
+    setStatus("ok", "Ready · 2안");
+    agentMsg(st.done || `두 가지 안이 준비되었습니다. 상단의 <b>[원본 · A안 · B안]</b>으로 전환해 비교하세요.`);
+  }
+  if (!st.running && timer && !allDone && st.lanes.some(l => l.error)) {
+    clearInterval(timer); timer = null;
+    $("send").disabled = false;
+    setStatus("ok", "일부 실패");
+  }
+}
+
+function setStatus(kind, text) {
+  $("statusChip").className = "chip " + kind;
+  $("statusText").textContent = text;
+}
+
+/* ── 데모 화면: 뷰별 전용 iframe (origin/a/b) ── */
+const FRAMES = { origin: "frame-origin", a: "frame-a", b: "frame-b" };
+
+function showFrame(key) {  // key: "origin" | "a" | "b" | null(빈 슬롯)
+  $("slot").classList.toggle("hide", key !== null);
+  for (const [k, id] of Object.entries(FRAMES))
+    $(id).classList.toggle("show", k === key);
+}
+
+function setFrameSrc(key, url) {  // 같은 URL이면 리로드하지 않는다
+  const f = $(FRAMES[key]);
+  if (f.dataset.cur !== url) { f.src = url; f.dataset.cur = url; }
+}
+
+/* ── 뷰 전환: 원본 / A안 / B안 ── */
+function setView(v) {
+  view = v;
+  document.querySelectorAll(".nav button").forEach(b =>
+    b.classList.toggle("on", b.dataset.view === v));
+
+  if (v === "origin") {
+    if (DEMO_SRC) { setFrameSrc("origin", DEMO_SRC); showFrame("origin"); }
+    else showFrame(null);
+    setExplain("hidden");
+    return;
+  }
+
+  const l = lanes[v];
+  if (!l || !l.url) return;
+  setFrameSrc(v, l.url);
+  showFrame(v);
+  // 설명 패널 채우기
+  $("exBadge").textContent = l.label; $("fBadge").textContent = l.label;
+  $("exApproach").textContent = l.approach + " 해석";
+  $("exTitle").textContent = l.summary;
+  $("exBody").textContent = l.explanation;
+  $("exUrl").textContent = l.url.replace(/^https?:\/\//, "");
+  $("exOpen").href = l.url;
+  $("fSum").textContent = l.summary + " — " + l.explanation;
+  setExplain("expanded");   // 설명 표시 → 데모 축소
+}
+
+/* ── 설명 패널 상태: expanded(데모 축소) / floating(데모 전체화면) ── */
+function setExplain(state) {
+  explainState = state;
+  $("explain").classList.toggle("show", state === "expanded");
+  $("float").classList.toggle("show", state === "floating");
+}
+
+/* 스크롤 인터랙션: 위로 스크롤 → 플로팅 + 전체화면, 아래로 → 다시 도킹 */
+function onWheel(e) {
+  if (view === "origin" || explainState === "hidden") return;
+  const now = Date.now();
+  if (now - lastToggle < 450) return;
+  if (e.deltaY < -12 && explainState === "expanded") { setExplain("floating"); lastToggle = now; }
+  else if (e.deltaY > 12 && explainState === "floating") { setExplain("expanded"); lastToggle = now; }
+}
+$("stagebody").addEventListener("wheel", onWheel, { passive: true });
+// same-origin iframe 내부 스크롤도 감지 (cross-origin은 조용히 무시)
+Object.values(FRAMES).forEach(id => {
+  $(id).addEventListener("load", () => {
+    try { $(id).contentWindow.addEventListener("wheel", onWheel, { passive: true }); }
+    catch (_) {}
+  });
+});
+</script>
+</body>
+</html>

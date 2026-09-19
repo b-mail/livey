@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파트너 정산</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --sidebar: #ffffff;
+    --border: #e5e7eb;
+    --ink: #111827;
+    --ink-2: #4b5563;
+    --ink-3: #9ca3af;
+    --accent: #2f4fd8;
+    --accent-soft: #eef1fd;
+    --row-hover: #f8fafc;
+    --bar: #2f4fd8;
+    --bar-track: #eef0f4;
+    --good: #15803d;
+    --wait: #b45309;
+    --c1: #2f4fd8;
+    --c2: #0e8a74;
+    --c3: #c27c0e;
+    --c4: #c9476b;
+    --c5: #7b8496;
+    --on-slice: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1014;
+      --surface: #151a21;
+      --sidebar: #12161c;
+      --border: #262d38;
+      --ink: #f3f4f6;
+      --ink-2: #b6bdc9;
+      --ink-3: #737c8c;
+      --accent: #8fa6ff;
+      --accent-soft: #1d2537;
+      --row-hover: #1b222b;
+      --bar: #8fa6ff;
+      --bar-track: #222933;
+      --good: #4ade80;
+      --wait: #fbbf24;
+      --c1: #8fa6ff;
+      --c2: #3dd6b5;
+      --c3: #fbcb4a;
+      --c4: #f38aa6;
+      --c5: #a3acbd;
+      --on-slice: #0d1014;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1014;
+    --surface: #151a21;
+    --sidebar: #12161c;
+    --border: #262d38;
+    --ink: #f3f4f6;
+    --ink-2: #b6bdc9;
+    --ink-3: #737c8c;
+    --accent: #8fa6ff;
+    --accent-soft: #1d2537;
+    --row-hover: #1b222b;
+    --bar: #8fa6ff;
+    --bar-track: #222933;
+    --good: #4ade80;
+    --wait: #fbbf24;
+    --c1: #8fa6ff;
+    --c2: #3dd6b5;
+    --c3: #fbcb4a;
+    --c4: #f38aa6;
+    --c5: #a3acbd;
+    --on-slice: #0d1014;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo",
+                 "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---------- 사이드바 ---------- */
+  .sidebar {
+    width: 216px;
+    flex: 0 0 216px;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    padding: 22px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 10px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .brand .dot {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    background: var(--accent);
+    flex: none;
+  }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+
+  .nav-label {
+    font-size: 11px;
+    color: var(--ink-3);
+    padding: 0 10px 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .nav-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 7px;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+
+  .nav-item:hover { background: var(--row-hover); color: var(--ink); }
+
+  .nav-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 550;
+  }
+
+  .sidebar-foot {
+    margin-top: auto;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ---------- 본문 ---------- */
+  main { flex: 1; min-width: 0; padding: 36px 32px 64px; }
+  .inner { max-width: 880px; }
+
+  header { margin-bottom: 26px; }
+  h1 { margin: 0 0 4px; font-size: 21px; font-weight: 650; letter-spacing: -0.01em; }
+  .period { color: var(--ink-3); font-size: 13px; }
+
+  h2 {
+    margin: 32px 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .tile .label { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .tile .value {
+    font-size: 20px; font-weight: 650;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .tile.primary .value { color: var(--accent); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+
+  th {
+    text-align: left;
+    font-size: 12px; font-weight: 550;
+    color: var(--ink-3);
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--row-hover); }
+
+  .num { text-align: right; }
+  .partner { color: var(--ink); font-weight: 500; }
+  .settle { color: var(--ink); font-weight: 550; }
+
+  /* 상태 — 색만으로 구분하지 않도록 점 + 라벨을 함께 씀 */
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  .status .mark { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .status.done { color: var(--good); }
+  .status.done .mark { background: var(--good); }
+  .status.wait { color: var(--wait); }
+  .status.wait .mark { background: var(--wait); }
+
+  /* 파트너별 정산액 원그래프 */
+  .pie-card {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 32px;
+    align-items: center;
+    padding: 22px 26px;
+  }
+  .pie svg { display: block; width: 100%; height: auto; }
+  .pie path { stroke: var(--surface); stroke-width: 1.5; stroke-linejoin: round; }
+  .pie text {
+    font-size: 12px; font-weight: 650;
+    fill: var(--on-slice);
+    text-anchor: middle; dominant-baseline: central;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+  .legend { width: 100%; border-collapse: collapse; }
+  .legend td { padding: 9px 0; font-size: 13px; }
+  .legend td + td { padding-left: 14px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; vertical-align: -1px; margin-right: 9px; }
+  .legend .name { color: var(--ink); }
+  .legend .share { color: var(--ink-3); width: 1%; }
+  .legend tfoot td { border-top: 1px solid var(--border); border-bottom: none; color: var(--ink); font-weight: 600; padding-top: 11px; }
+  .legend tbody tr:hover td { background: none; }
+
+  @media (max-width: 760px) {
+    .app { flex-direction: column; }
+    .sidebar {
+      width: auto; flex: none;
+      border-right: 0; border-bottom: 1px solid var(--border);
+      flex-direction: row; align-items: center;
+      gap: 14px; padding: 12px 14px; overflow-x: auto;
+    }
+    .sidebar .nav-label, .sidebar-foot { display: none; }
+    nav { flex-direction: row; gap: 4px; }
+    .nav-item { white-space: nowrap; padding: 6px 12px; }
+    main { padding: 24px 16px 48px; }
+    .summary { grid-template-columns: 1fr; }
+    .pie-card { grid-template-columns: 1fr; gap: 18px; padding: 18px 16px; }
+    .pie { max-width: 200px; margin: 0 auto; width: 100%; }
+    th, td { padding-left: 12px; padding-right: 12px; }
+    body { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span>정산 콘솔</div>
+    <nav id="nav">
+      <div class="nav-label">메뉴</div>
+    </nav>
+    <div class="sidebar-foot">데모 계정 · 2026 Q3</div>
+  </aside>
+
+  <main>
+    <div class="inner">
+      <header>
+        <h1 id="title"></h1>
+        <div class="period" id="subtitle"></div>
+      </header>
+      <div id="body"></div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  /* ── 거래 원장. 수수료율은 파트너별 계약 요율. ───────────────── */
+  const DATA = [
+    { date: '2026-08-04', partner: '스타일리브', amount: 4_820_000, rate: 0.032 },
+    { date: '2026-08-09', partner: '그린마켓',   amount: 1_150_000, rate: 0.028 },
+    { date: '2026-08-15', partner: '데일리핏',   amount: 7_340_000, rate: 0.035 },
+    { date: '2026-08-21', partner: '하우스오브', amount: 2_690_000, rate: 0.030 },
+    { date: '2026-08-27', partner: '스타일리브', amount: 5_410_000, rate: 0.032 },
+    { date: '2026-08-30', partner: '모던키친',   amount:   880_000, rate: 0.028 },
+    { date: '2026-09-02', partner: '데일리핏',   amount: 6_120_000, rate: 0.035 },
+    { date: '2026-09-06', partner: '그린마켓',   amount: 1_970_000, rate: 0.028 },
+    { date: '2026-09-11', partner: '하우스오브', amount: 3_450_000, rate: 0.030 },
+    { date: '2026-09-14', partner: '스타일리브', amount: 4_060_000, rate: 0.032 },
+    { date: '2026-09-17', partner: '모던키친',   amount: 1_240_000, rate: 0.028 },
+    { date: '2026-09-19', partner: '데일리핏',   amount: 8_930_000, rate: 0.035 },
+  ];
+
+  /* ── 계산 ──────────────────────────────────────────────────── */
+  const won     = n => '₩' + Math.round(n).toLocaleString('ko-KR');
+  const fee     = r => r.amount * r.rate;
+  const settled = r => r.amount - fee(r);
+  const sum     = (rows, f) => rows.reduce((s, r) => s + f(r), 0);
+  const byDate  = rows => [...rows].sort((a, b) => a.date.localeCompare(b.date));
+  const ymd     = d => d.replace(/-/g, '.').slice(2);
+  const month   = d => d.slice(0, 7);
+
+  const groupBy = (rows, key) => rows.reduce((m, r) => {
+    (m[key(r)] ||= []).push(r);
+    return m;
+  }, {});
+
+
+  /* ── 원그래프 ──────────────────────────────────────────────── */
+  const PALETTE = ['--c1', '--c2', '--c3', '--c4', '--c5'];
+  const pct = p => (p * 100).toFixed(1) + '%';
+  const pt  = (r, a) => [(r * Math.cos(a)).toFixed(2), (r * Math.sin(a)).toFixed(2)];
+
+  // 12시 방향에서 시계방향으로 조각을 나눈다
+  function slices(ranked) {
+    const total = ranked.reduce((s, [, v]) => s + v, 0);
+    let a = -Math.PI / 2;
+    return ranked.map(([name, v], i) => {
+      const a0 = a, a1 = a + v / total * Math.PI * 2;
+      a = a1;
+      return { i, name, v, share: v / total, a0, a1, color: `var(${PALETTE[i % PALETTE.length]})` };
+    });
+  }
+
+  // r0 = 0 이면 파이 조각, r0 > 0 이면 도넛 조각
+  function sector(r0, r1, a0, a1) {
+    if (a1 - a0 >= Math.PI * 2 - 1e-6) a1 = a0 + Math.PI * 2 - 1e-4;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(r1, a0), [x1, y1] = pt(r1, a1);
+    if (!r0) return `M0 0L${x0} ${y0}A${r1} ${r1} 0 ${large} 1 ${x1} ${y1}Z`;
+    const [x2, y2] = pt(r0, a1), [x3, y3] = pt(r0, a0);
+    return `M${x0} ${y0}A${r1} ${r1} 0 ${large} 1 ${x1} ${y1}L${x2} ${y2}A${r0} ${r0} 0 ${large} 0 ${x3} ${y3}Z`;
+  }
+
+  /* ── 공용 조각 ─────────────────────────────────────────────── */
+  const tiles = items => `<section class="summary">${items.map(
+    ([label, value, cls]) => `
+      <div class="tile ${cls || ''}">
+        <div class="label">${label}</div>
+        <div class="value">${value}</div>
+      </div>`).join('')}</section>`;
+
+  const table = (cols, rows) => `
+    <div class="card">
+      <table>
+        <thead><tr>${cols.map(c =>
+          `<th class="${c.num ? 'num' : ''}">${c.label}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r =>
+          `<tr>${r.map((cell, i) =>
+            `<td class="${cols[i].num ? 'num' : ''} ${cols[i].cls || ''}">${cell}</td>`
+          ).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+
+  const status = (kind, label) =>
+    `<span class="status ${kind}"><span class="mark"></span>${label}</span>`;
+
+  /* ── 화면 ──────────────────────────────────────────────────── */
+  const VIEWS = {
+
+    settlements: {
+      nav: '정산 내역',
+      title: '정산 내역',
+      subtitle: '2026년 8월 1일 – 9월 19일 · 12건',
+      render() {
+        const rows = byDate(DATA);
+        const total = sum(rows, r => r.amount);
+        const feeSum = sum(rows, fee);
+        return tiles([
+          ['총 거래액', won(total)],
+          ['총 수수료', won(feeSum)],
+          ['정산 예정액', won(total - feeSum), 'primary'],
+        ]) + '<h2>거래 원장</h2>' + table(
+          [{ label: '거래일' }, { label: '파트너명', cls: 'partner' },
+           { label: '거래액', num: true }, { label: '수수료', num: true },
+           { label: '정산액', num: true, cls: 'settle' }],
+          rows.map(r => [ymd(r.date), r.partner, won(r.amount), won(fee(r)), won(settled(r))])
+        );
+      }
+    },
+
+    overview: {
+      nav: '대시보드',
+      title: '대시보드',
+      subtitle: '2026년 8월 1일 – 9월 19일',
+      render() {
+        const total = sum(DATA, r => r.amount);
+        const feeSum = sum(DATA, fee);
+        const groups = groupBy(DATA, r => r.partner);
+        const ranked = Object.entries(groups)
+          .map(([name, rows]) => [name, sum(rows, settled)])
+          .sort((a, b) => b[1] - a[1]);
+        const parts = slices(ranked);
+        const settleSum = total - feeSum;
+
+        return tiles([
+          ['총 거래액', won(total)],
+          ['거래 건수', DATA.length + '건'],
+          ['정산 예정액', won(total - feeSum), 'primary'],
+        ]) + `
+          <h2>파트너별 정산액</h2>
+          <div class="card pie-card">
+            <div class="pie">
+              <svg viewBox="-100 -100 200 200" role="img" aria-label="파트너별 정산액 비중">
+                ${parts.map(p => `<path d="${sector(0, 98, p.a0, p.a1)}" style="fill:${p.color}"><title>${p.name} ${won(p.v)} (${pct(p.share)})</title></path>`).join('')}
+                ${parts.filter(p => p.share >= 0.08).map(p => {
+                  const [x, y] = pt(62, (p.a0 + p.a1) / 2);
+                  return `<text x="${x}" y="${y}">${Math.round(p.share * 100)}%</text>`;
+                }).join('')}
+              </svg>
+            </div>
+            <table class="legend">
+              <tbody>${parts.map(p => `
+                <tr>
+                  <td><span class="sw" style="background:${p.color}"></span><span class="name">${p.name}</span></td>
+                  <td class="num">${won(p.v)}</td>
+                  <td class="num share">${pct(p.share)}</td>
+                </tr>`).join('')}</tbody>
+              <tfoot><tr><td>합계</td><td class="num">${won(settleSum)}</td><td class="num share">100%</td></tr></tfoot>
+            </table>
+          </div>
+
+          <h2>최근 거래</h2>` + table(
+            [{ label: '거래일' }, { label: '파트너명', cls: 'partner' },
+             { label: '정산액', num: true, cls: 'settle' }],
+            byDate(DATA).slice(-5).reverse()
+              .map(r => [ymd(r.date), r.partner, won(settled(r))])
+          );
+      }
+    },
+
+    partners: {
+      nav: '파트너',
+      title: '파트너',
+      subtitle: '계약 요율 및 누적 실적 · 5개사',
+      render() {
+        const groups = groupBy(DATA, r => r.partner);
+        const rows = Object.entries(groups)
+          .map(([name, rs]) => ({
+            name, rate: rs[0].rate, count: rs.length,
+            amount: sum(rs, r => r.amount), settle: sum(rs, settled),
+          }))
+          .sort((a, b) => b.settle - a.settle);
+
+        return table(
+          [{ label: '파트너명', cls: 'partner' }, { label: '계약 요율', num: true },
+           { label: '거래 건수', num: true }, { label: '거래액', num: true },
+           { label: '누적 정산액', num: true, cls: 'settle' }],
+          rows.map(r => [r.name, (r.rate * 100).toFixed(1) + '%',
+                         r.count + '건', won(r.amount), won(r.settle)])
+        );
+      }
+    },
+
+    payouts: {
+      nav: '지급 관리',
+      title: '지급 관리',
+      subtitle: '월별 정산 회차 · 지급일은 익월 10일',
+      render() {
+        const groups = groupBy(DATA, r => month(r.date) + '|' + r.partner);
+        const rows = Object.entries(groups).map(([key, rs]) => {
+          const [m, partner] = key.split('|');
+          const done = m === '2026-08';
+          return {
+            m, partner, count: rs.length, settle: sum(rs, settled),
+            payDate: done ? '26.09.10' : '26.10.10',
+            state: done ? status('done', '지급완료') : status('wait', '지급예정'),
+          };
+        }).sort((a, b) => b.m.localeCompare(a.m) || b.settle - a.settle);
+
+        const pending = rows.filter(r => r.m === '2026-09');
+
+        return tiles([
+          ['이번 회차 지급예정', won(sum(pending, r => r.settle)), 'primary'],
+          ['지급예정 건수', pending.length + '건'],
+          ['다음 지급일', '2026.10.10'],
+        ]) + '<h2>회차별 지급</h2>' + table(
+          [{ label: '정산 회차' }, { label: '파트너명', cls: 'partner' },
+           { label: '거래 건수', num: true }, { label: '지급액', num: true, cls: 'settle' },
+           { label: '지급일' }, { label: '상태' }],
+          rows.map(r => [r.m.replace('-', '년 ') + '월', r.partner,
+                         r.count + '건', won(r.settle), r.payDate, r.state])
+        );
+      }
+    },
+  };
+
+  /* ── 라우팅 ────────────────────────────────────────────────── */
+  const ORDER = ['overview', 'settlements', 'partners', 'payouts'];
+  let current = 'overview';      // 요청1: 파이 차트가 있는 대시보드에서 시작
+
+  function render(key = current) {
+    current = key;
+    const view = VIEWS[key];
+    document.getElementById('title').textContent = view.title;
+    document.getElementById('subtitle').textContent = view.subtitle;
+    document.getElementById('body').innerHTML = view.render();
+    document.querySelectorAll('.nav-item').forEach(b =>
+      b.classList.toggle('active', b.dataset.key === key));
+  }
+
+  const nav = document.getElementById('nav');
+  ORDER.forEach(key => {
+    const b = document.createElement('button');
+    b.className = 'nav-item';
+    b.dataset.key = key;
+    b.textContent = VIEWS[key].nav;
+    b.onclick = () => render(key);
+    nav.appendChild(b);
+  });
+
+  render();
+</script>
+</body>
+</html>

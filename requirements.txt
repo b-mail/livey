@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+# 실제 샌드박스 모드 사용 시:
+# daytona
