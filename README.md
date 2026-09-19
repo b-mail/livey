@@ -36,7 +36,7 @@ variants/2/{a,b}.html  # 2번째 요청 — A안 파트너 칩 필터 / B안 툴
 
 - **mock (기본)** — 변형을 로컬에서 서빙하고 단계 진행을 시뮬레이션. 키 없이 즉시 동작.
 - **daytona** — `DAYTONA_API_KEY` 설정 시 진짜 샌드박스를 띄운다
-  (`deploy_daytona()` — 레퍼런스 구현, 행사장에서 가장 먼저 검증할 것).
+  (`deploy_daytona()` — 레퍼런스 구현).
 
 LLM 연동은 `generate_variant()` 함수 하나만 교체하면 된다
 (원본 HTML + 요청 + 프롬프트 스타일 → 수정된 HTML).
