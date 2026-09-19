@@ -6,7 +6,6 @@
 ## 실행
 
 ```bash
-cd live-demo-agent
 pip install -r requirements.txt
 python orchestrator.py
 # → http://localhost:8787
@@ -39,8 +38,28 @@ variants/2/{a,b}.html  # 2번째 요청 — A안 파트너 칩 필터 / B안 툴
 - **daytona** — `DAYTONA_API_KEY` 설정 시 진짜 샌드박스를 띄운다
   (`deploy_daytona()` — 레퍼런스 구현, 행사장에서 가장 먼저 검증할 것).
 
+  `.env`는 읽지 않는다. 환경변수로 직접 넘길 것:
+
+  ```bash
+  DAYTONA_API_KEY=xxx python orchestrator.py
+  ```
+
+  키는 기동 시점에 한 번만 읽는다. 현재 모드는 `/api/health`의 `mode`로 확인.
+
 LLM 연동은 `generate_variant()` 함수 하나만 교체하면 된다
 (원본 HTML + 요청 + 프롬프트 스타일 → 수정된 HTML).
+
+## 승인 → 실행: 고객이 고른 안이, 그대로 티켓이 된다
+
+**고객이 고른 안 + 승인 한 번** → 쓰던 협업 도구로 그대로 흘러간다.
+
+| | 하는 일 | 내용 |
+|---|---|---|
+| **Slack** | 담당 채널 스레드로 | 요청 원문 · 고른 안 · 프리뷰 URL이 한 메시지로 |
+| **Linear** | 이슈 자동 생성 | 제목 · 본문 · 링크까지 채워진 채로 백로그에 |
+| **Jira** | 티켓 자동 생성 | 쓰던 워크플로 그대로, 담당자와 기한만 붙이면 끝 |
+
+데모가 끝나는 자리가 아니라, 일이 시작되는 자리다.
 
 ## 버린 것 (PRD 스코프)
 
