@@ -196,6 +196,27 @@
   .p-view:hover{border-color:var(--ink)}
   .p-lane.ready .p-view{display:inline-block}
 
+  /* 채팅 내 A/B 선택 */
+  .pick{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .pick-btn{
+    border:1px solid var(--border);background:var(--surface);color:var(--ink);
+    font:inherit;font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;
+    cursor:pointer;transition:border-color .15s,background .15s,color .15s;
+  }
+  .pick-btn:hover:not(:disabled){border-color:var(--ink)}
+  .pick-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .pick-btn:disabled{cursor:default;opacity:.45}
+  .pick-btn.on:disabled{opacity:1}
+  .pick-status{
+    width:100%;display:none;align-items:center;gap:8px;
+    font-size:13px;color:var(--muted);margin-top:2px;
+  }
+  .pick-status.show{display:flex}
+  .pick-status.ok{color:var(--ok);font-weight:500}
+  .pick-load{width:100%;height:3px;background:var(--bg);border-radius:99px;overflow:hidden}
+  .pick-load i{display:block;height:100%;width:0;background:var(--ink);border-radius:99px;animation:fill2 2s linear forwards}
+  @keyframes fill2{to{width:100%}}
+
   .composer{flex:none;border-top:1px solid var(--border);padding:14px 16px;background:var(--surface)}
   .composer-in{
     display:flex;align-items:flex-end;gap:8px;
@@ -474,7 +495,8 @@ async function poll() {
     $("nav").classList.add("show");
     $("send").disabled = false;
     setStatus("ok", "Ready · 2안");
-    agentMsg(st.done || `두 가지 안이 준비되었습니다. 상단의 <b>[원본 · A안 · B안]</b>으로 전환해 비교하세요.`);
+    agentMsg((st.done || `두 가지 안이 준비되었습니다. 상단의 <b>[원본 · A안 · B안]</b>으로 전환해 비교하세요.`)
+      + pickHtml(runSeq));
   }
   if (!st.running && timer && !allDone && st.lanes.some(l => l.error)) {
     clearInterval(timer); timer = null;
@@ -486,6 +508,46 @@ async function poll() {
 function setStatus(kind, text) {
   $("statusChip").className = "chip " + kind;
   $("statusText").textContent = text;
+}
+
+function pickHtml(n) {
+  const a = n === 1 ? "A안 · 파이 차트" : "A안 · 파트너 칩";
+  const b = n === 1 ? "B안 · 도넛 차트" : "B안 · 툴바 + 합계";
+  return `
+    <div class="pick" id="pick-${n}">
+      <button type="button" class="pick-btn" data-lane="a" onclick="pickLane(${n},'a')">${a}</button>
+      <button type="button" class="pick-btn" data-lane="b" onclick="pickLane(${n},'b')">${b}</button>
+      <div class="pick-load" id="pick-bar-${n}" hidden><i></i></div>
+      <div class="pick-status" id="pick-st-${n}"></div>
+    </div>`;
+}
+
+async function pickLane(n, lane) {
+  const wrap = $("pick-" + n);
+  if (!wrap || wrap.dataset.done || wrap.dataset.busy) return;
+  wrap.dataset.busy = "1";
+  wrap.querySelectorAll(".pick-btn").forEach(btn => {
+    btn.disabled = true;
+    btn.classList.toggle("on", btn.dataset.lane === lane);
+  });
+  setView(lane);
+  const label = lane === "a" ? "A안" : "B안";
+  const bar = $("pick-bar-" + n);
+  const st = $("pick-st-" + n);
+  bar.hidden = false;
+  bar.querySelector("i").style.animation = "none";
+  void bar.offsetWidth;
+  bar.querySelector("i").style.animation = "";
+  st.className = "pick-status show";
+  st.innerHTML = `<i class="spin"></i><span>${label}을 적용하는 중…</span>`;
+  $("send").disabled = true;
+  await new Promise(r => setTimeout(r, 2000));
+  wrap.dataset.done = "1";
+  delete wrap.dataset.busy;
+  bar.hidden = true;
+  st.className = "pick-status show ok";
+  st.innerHTML = `<span>✓ 전송 완료 · ${label}</span>`;
+  $("send").disabled = false;
 }
 
 /* ── 데모 화면: 뷰별 전용 iframe (origin/a/b) ── */
