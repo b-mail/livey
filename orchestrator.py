@@ -1,13 +1,11 @@
 """
-라이브 데모 수정 에이전트 — 오케스트레이터 (2시간 해커톤 프로토타입)
+라이브 데모 수정 에이전트 — 오케스트레이터
 
-역할: 수정 요청 1건 → 3개 변형안 생성 → 샌드박스 3개 병렬 기동 → 공개 URL 3개 반환.
+수정 요청 1건 → A·B 두 레인 병렬 실행 → 프리뷰 URL 2개 반환.
 
 동작 모드
-- mock (기본): 변형 HTML을 로컬(variants/)에서 서빙하고 단계 진행을 시뮬레이션한다.
-  PRD의 "처음엔 변형 3개를 하드코딩해두고 파이프라인부터 도는 것을 확인" 경로.
+- mock (기본): variants/의 변형 HTML을 서빙하고 단계 진행을 시뮬레이션한다.
 - daytona: DAYTONA_API_KEY 환경변수가 있으면 진짜 샌드박스를 띄운다.
-  (레퍼런스 구현 — 행사장에서 2:15까지 검증할 부분)
 
 실행: uvicorn orchestrator:app --port 8787
 """
@@ -29,7 +27,6 @@ app = FastAPI(title="Livey — 라이브 데모 수정 에이전트")
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 
 # ── 레인 정의 ────────────────────────────────────────────────────────────
-# 프롬프트 3종(보수적/과감한/선택형)에 대응하는 3개 레인.
 # delays: mock 모드에서 각 단계(생성→기동→서버→준비)의 소요 초 시뮬레이션.
 STAGES = ["변형 생성", "샌드박스 기동", "서버 실행", "준비 완료"]
 
@@ -104,7 +101,7 @@ ROUNDS = {
     },
 }
 
-# ── 상태 (메모리 only — PRD: 저장·히스토리는 버린다) ─────────────────────
+# ── 상태 (메모리 only) ───────────────────────────────────────────────────
 STATE = {
     "running": False,
     "request": None,
@@ -148,24 +145,20 @@ def reset_session():
 reset_lanes()
 
 
-# ── 변형 생성 (B 레인 인터페이스) ────────────────────────────────────────
-# 실전에서는 LLM 3회 병렬 호출로 교체한다:
-#   async def generate_variant(original_html, request, prompt_style) -> str
-# 지금은 하드코딩된 변형을 읽는다 (PRD 폴백 경로).
+# ── 변형 생성 ────────────────────────────────────────────────────────────
 async def generate_variant(lane_id: str, request_text: str) -> str:
     rnd = current_round()
     return (BASE / "variants" / str(rnd) / f"{lane_id}.html").read_text(encoding="utf-8")
 
 
-# ── 샌드박스 배포 (A 레인) ───────────────────────────────────────────────
+# ── 샌드박스 배포 ────────────────────────────────────────────────────────
 async def deploy_mock(lane_id: str, html: str) -> str:
-    """mock: 로컬 프리뷰 URL. 파이프라인 검증용."""
+    """mock: 로컬 프리뷰 URL."""
     return f"http://localhost:8787/preview/{current_round()}/{lane_id}"
 
 
 async def deploy_daytona(lane_id: str, html: str) -> str:
-    """Daytona 레퍼런스 구현. 파일 하나 쓰고 정적 서버 띄우고 프리뷰 URL 획득.
-    행사장에서 2:15까지 이 함수가 실제로 도는지 제일 먼저 검증할 것."""
+    """파일 하나를 올리고 정적 서버를 띄운 뒤 프리뷰 URL을 얻는다."""
     from daytona import Daytona  # pip install daytona
 
     def _run() -> str:
@@ -208,13 +201,12 @@ async def run_lane(lane_id: str, request_text: str):
         lane["url"] = url
         lane["stage"] = 3
         lane["elapsed"] = round(time.monotonic() - t0, 1)
-    except Exception as e:  # 3개 중 1개 실패는 그대로 보여준다 (PRD 폴백)
+    except Exception as e:  # 한 레인이 실패해도 다른 레인은 계속 진행한다
         lane["error"] = str(e)
         lane["elapsed"] = round(time.monotonic() - t0, 1)
 
 
 async def run_all(request_text: str):
-    # asyncio.gather — 샌드박스 3개 진짜 병렬 (PRD 기술 구성)
     await asyncio.gather(*(run_lane(lid, request_text) for lid in LANES))
     STATE["running"] = False
 
