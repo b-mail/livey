@@ -38,14 +38,6 @@ variants/2/{a,b}.html  # 2번째 요청 — A안 파트너 칩 필터 / B안 툴
 - **daytona** — `DAYTONA_API_KEY` 설정 시 진짜 샌드박스를 띄운다
   (`deploy_daytona()` — 레퍼런스 구현, 행사장에서 가장 먼저 검증할 것).
 
-  `.env`는 읽지 않는다. 환경변수로 직접 넘길 것:
-
-  ```bash
-  DAYTONA_API_KEY=xxx python orchestrator.py
-  ```
-
-  키는 기동 시점에 한 번만 읽는다. 현재 모드는 `/api/health`의 `mode`로 확인.
-
 LLM 연동은 `generate_variant()` 함수 하나만 교체하면 된다
 (원본 HTML + 요청 + 프롬프트 스타일 → 수정된 HTML).
 
